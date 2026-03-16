@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' />
+  <title>2049</title>
+  <style>
+    :root {
+      --bg: #faf8ef;
+      --text-primary: #776e65;
+      --text-light: #f9f6f2;
+      --board-bg: #bbada0;
+      --cell-bg: rgba(238, 228, 218, 0.35);
+      --gap: 12px;
+      --radius: 15px;
+      --board-size: min(92vmin, 520px);
+      --cell-size: calc((var(--board-size) - (var(--gap) * 5)) / 4);
+      --transition-fast: 100ms ease-in-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Clear Sans', 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .game-shell {
+      width: min(100%, 560px);
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(42px, 10vmin, 78px);
+      line-height: 0.95;
+      letter-spacing: 0.5px;
+      color: #776e65;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .score-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .score-box {
+      min-width: 92px;
+      background: #bbada0;
+      color: var(--text-light);
+      border-radius: 10px;
+      padding: 7px 10px 8px;
+      text-align: center;
+      line-height: 1;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .score-box .label {
+      display: block;
+      text-transform: uppercase;
+      font-size: 12px;
+      opacity: 0.85;
+      margin-bottom: 4px;
+      letter-spacing: 0.4px;
+    }
+
+    .score-box .value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: #8f7a66;
+      color: #f9f6f2;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 11px 16px;
+      cursor: pointer;
+      transition: filter 120ms ease, transform 120ms ease;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      margin: 0 0 14px;
+      font-size: 15px;
+      line-height: 1.4;
+      color: #7f7469;
+    }
+
+    .board-wrap {
+      position: relative;
+      width: var(--board-size);
+      height: var(--board-size);
+      background: var(--board-bg);
+      border-radius: var(--radius);
+      margin: 0 auto;
+      padding: var(--gap);
+      box-shadow: 0 18px 28px rgba(0, 0, 0, 0.12);
+      touch-action: none;
+      overflow: hidden;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, var(--cell-size));
+      grid-template-rows: repeat(4, var(--cell-size));
+      gap: var(--gap);
+      width: 100%;
+      height: 100%;
+    }
+
+    .cell {
+      background: var(--cell-bg);
+      border-radius: var(--radius);
+      box-shadow: inset 0 2px 1px rgba(255, 255, 255, 0.18), inset 0 -2px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .tile-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .tile {
+      position: absolute;
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      user-select: none;
+      left: 0;
+      top: 0;
+      transform: translate(var(--x), var(--y));
+      transition: transform var(--transition-fast), opacity var(--transition-fast);
+      font-size: 55px;
+      color: #776e65;
+      box-shadow: 0 3px 9px rgba(0, 0, 0, 0.16);
+    }
+
+    .tile-new { animation: pop 140ms ease-out; }
+    .tile-merged { animation: merge-pop 160ms ease-out; }
+
+    @keyframes pop {
+      0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(0.45); }
+      70% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1.1); }
+      100% { transform: translate(var(--x), var(--y)) scale(1); }
+    }
+
+    @keyframes merge-pop {
+      0% { transform: translate(var(--x), var(--y)) scale(0.92); }
+      50% { transform: translate(var(--x), var(--y)) scale(1.12); }
+      100% { transform: translate(var(--x), var(--y)) scale(1); }
+    }
+
+    .tile[data-value='2'] { background: #eee4da; }
+    .tile[data-value='4'] { background: #ede0c8; }
+    .tile[data-value='8'] { background: #f2b179; color: var(--text-light); }
+    .tile[data-value='16'] { background: #f59563; color: var(--text-light); }
+    .tile[data-value='32'] { background: #f67c5f; color: var(--text-light); }
+    .tile[data-value='64'] { background: #f65e3b; color: var(--text-light); }
+    .tile[data-value='128'] { background: #edcf72; color: var(--text-light); font-size: 45px; }
+    .tile[data-value='256'] { background: #edcc61; color: var(--text-light); font-size: 45px; }
+    .tile[data-value='512'] { background: #edc850; color: var(--text-light); font-size: 45px; }
+    .tile[data-value='1024'] { background: #edc53f; color: var(--text-light); font-size: 35px; }
+    .tile[data-value='2048'] { background: #edc22e; color: var(--text-light); font-size: 35px; }
+    .tile[data-value='4096'],
+    .tile[data-value='8192'],
+    .tile[data-value='16384'] {
+      background: #3c3a32;
+      color: var(--text-light);
+      font-size: 30px;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(238, 228, 218, 0.73);
+      backdrop-filter: blur(2px);
+      padding: 18px;
+    }
+
+    .overlay.show { display: flex; }
+
+    .overlay-card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      width: min(92%, 360px);
+      text-align: center;
+      padding: 22px 18px 18px;
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .overlay-card h2 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      color: #776e65;
+    }
+
+    .overlay-card p {
+      margin: 0 0 14px;
+      color: #8a8179;
+      line-height: 1.4;
+      font-size: 16px;
+    }
+
+    .overlay-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-secondary { background: #c5b6a6; color: #443f3a; }
+
+    @media (max-width: 520px) {
+      :root { --gap: 10px; }
+      .top { grid-template-columns: 1fr; }
+      .controls { align-items: stretch; }
+      .score-row { justify-content: space-between; }
+      .score-box { min-width: 0; flex: 1; }
+      button { width: 100%; }
+      .tile { font-size: 46px; }
+      .tile[data-value='128'], .tile[data-value='256'], .tile[data-value='512'] { font-size: 38px; }
+      .tile[data-value='1024'], .tile[data-value='2048'] { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <main class='game-shell'>
+    <header class='top'>
+      <h1 class='title'>2049</h1>
+      <div class='controls'>
+        <div class='score-row'>
+          <div class='score-box'>
+            <span class='label'>Score</span>
+            <span class='value' id='score'>0</span>
+          </div>
+          <div class='score-box'>
+            <span class='label'>Best</span>
+            <span class='value' id='best'>0</span>
+          </div>
+        </div>
+        <button id='new-game' type='button'>New Game</button>
+      </div>
+    </header>
+
+    <p class='hint'><strong>How to play:</strong> Use arrow keys or swipe. Merge matching tiles to reach <strong>2048</strong>.</p>
+
+    <section class='board-wrap' id='board-wrap' aria-label='2049 game board'>
+      <div class='grid' id='grid-bg'></div>
+      <div class='tile-layer' id='tile-layer'></div>
+
+      <div class='overlay' id='win-overlay'>
+        <div class='overlay-card'>
+          <h2>You Win!</h2>
+          <p>You reached 2048. Keep going for a bigger score, or start fresh.</p>
+          <div class='overlay-actions'>
+            <button id='keep-going' class='btn-secondary' type='button'>Keep Going</button>
+            <button id='win-new-game' type='button'>Try Again</button>
+          </div>
+        </div>
+      </div>
+
+      <div class='overlay' id='game-over-overlay'>
+        <div class='overlay-card'>
+          <h2>Game Over</h2>
+          <p>No valid moves left. Want another round?</p>
+          <div class='overlay-actions'>
+            <button id='retry' type='button'>Try Again</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var SIZE = 4;
+      var WIN_VALUE = 2048;
+      var STORAGE_KEY = 'game2049_best_score';
+
+      var scoreEl = document.getElementById('score');
+      var bestEl = document.getElementById('best');
+      var newGameBtn = document.getElementById('new-game');
+      var retryBtn = document.getElementById('retry');
+      var winNewBtn = document.getElementById('win-new-game');
+      var keepGoingBtn = document.getElementById('keep-going');
+      var tileLayer = document.getElementById('tile-layer');
+      var gridBg = document.getElementById('grid-bg');
+      var boardWrap = document.getElementById('board-wrap');
+      var winOverlay = document.getElementById('win-overlay');
+      var gameOverOverlay = document.getElementById('game-over-overlay');
+
+      function makeBackgroundCells() {
+        gridBg.innerHTML = '';
+        for (var i = 0; i < SIZE * SIZE; i += 1) {
+          var cell = document.createElement('div');
+          cell.className = 'cell';
+          gridBg.appendChild(cell);
+        }
+      }
+
+      function getStoredBest() {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        var best = Number(raw || 0);
+        return Number.isFinite(best) ? best : 0;
+      }
+
+      var state = {
+        board: new Array(SIZE * SIZE).fill(0),
+        score: 0,
+        best: getStoredBest(),
+        won: false,
+        keepPlaying: false,
+        gameOver: false,
+        lastSpawnIndex: null,
+        mergedIndices: new Set()
+      };
+
+      function resetGame() {
+        state.board = new Array(SIZE * SIZE).fill(0);
+        state.score = 0;
+        state.won = false;
+        state.keepPlaying = false;
+        state.gameOver = false;
+        state.lastSpawnIndex = null;
+        state.mergedIndices.clear();
+        hideOverlays();
+        spawnTile();
+        spawnTile();
+        render();
+      }
+
+      function hideOverlays() {
+        winOverlay.classList.remove('show');
+        gameOverOverlay.classList.remove('show');
+      }
+
+      function emptyIndices() {
+        var result = [];
+        for (var i = 0; i < state.board.length; i += 1) {
+          if (state.board[i] === 0) result.push(i);
+        }
+        return result;
+      }
+
+      function spawnTile() {
+        var empties = emptyIndices();
+        if (!empties.length) {
+          state.lastSpawnIndex = null;
+          return false;
+        }
+        var index = empties[Math.floor(Math.random() * empties.length)];
+        state.board[index] = Math.random() < 0.9 ? 2 : 4;
+        state.lastSpawnIndex = index;
+        return true;
+      }
+
+      function arraysEqual(a, b) {
+        for (var i = 0; i < a.length; i += 1) {
+          if (a[i] !== b[i]) return false;
+        }
+        return true;
+      }
+
+      function processLine(values) {
+        var compact = [];
+        for (var i = 0; i < values.length; i += 1) {
+          if (values[i] !== 0) compact.push(values[i]);
+        }
+
+        var result = [];
+        var gained = 0;
+        var mergedPositions = [];
+        var writePos = 0;
+
+        for (var j = 0; j < compact.length; j += 1) {
+          if (j < compact.length - 1 && compact[j] === compact[j + 1]) {
+            var merged = compact[j] * 2;
+            result.push(merged);
+            gained += merged;
+            mergedPositions.push(writePos);
+            j += 1;
+          } else {
+            result.push(compact[j]);
+          }
+          writePos += 1;
+        }
+
+        while (result.length < SIZE) result.push(0);
+
+        return {
+          line: result,
+          gained: gained,
+          mergedPositions: mergedPositions
+        };
+      }
+
+      function lineIndices(direction, line) {
+        var idx = [];
+        var i;
+
+        if (direction === 'left') {
+          for (i = 0; i < SIZE; i += 1) idx.push(line * SIZE + i);
+        } else if (direction === 'right') {
+          for (i = SIZE - 1; i >= 0; i -= 1) idx.push(line * SIZE + i);
+        } else if (direction === 'up') {
+          for (i = 0; i < SIZE; i += 1) idx.push(i * SIZE + line);
+        } else if (direction === 'down') {
+          for (i = SIZE - 1; i >= 0; i -= 1) idx.push(i * SIZE + line);
+        }
+
+        return idx;
+      }
+
+      function checkWin() {
+        if (state.won) return;
+        for (var i = 0; i < state.board.length; i += 1) {
+          if (state.board[i] >= WIN_VALUE) {
+            state.won = true;
+            if (!state.keepPlaying) winOverlay.classList.add('show');
+            return;
+          }
+        }
+      }
+
+      function hasMovesAvailable() {
+        if (emptyIndices().length) return true;
+
+        for (var r = 0; r < SIZE; r += 1) {
+          for (var c = 0; c < SIZE; c += 1) {
+            var index = r * SIZE + c;
+            var val = state.board[index];
+            if (c < SIZE - 1 && val === state.board[index + 1]) return true;
+            if (r < SIZE - 1 && val === state.board[index + SIZE]) return true;
+          }
+        }
+        return false;
+      }
+
+      function checkGameOver() {
+        state.gameOver = !hasMovesAvailable();
+        if (state.gameOver) gameOverOverlay.classList.add('show');
+      }
+
+      function updateBestScore() {
+        if (state.score > state.best) {
+          state.best = state.score;
+          localStorage.setItem(STORAGE_KEY, String(state.best));
+        }
+      }
+
+      function move(direction) {
+        if (state.gameOver) return;
+        if (state.won && !state.keepPlaying) return;
+
+        var previous = state.board.slice();
+        var moved = false;
+        state.mergedIndices.clear();
+
+        for (var line = 0; line < SIZE; line += 1) {
+          var indices = lineIndices(direction, line);
+          var values = indices.map(function (i) { return state.board[i]; });
+          var out = processLine(values);
+
+          if (!arraysEqual(values, out.line)) moved = true;
+
+          for (var w = 0; w < SIZE; w += 1) {
+            state.board[indices[w]] = out.line[w];
+          }
+
+          for (var m = 0; m < out.mergedPositions.length; m += 1) {
+            state.mergedIndices.add(indices[out.mergedPositions[m]]);
+          }
+
+          state.score += out.gained;
+        }
+
+        if (!moved) {
+          state.board = previous;
+          return;
+        }
+
+        updateBestScore();
+        spawnTile();
+        checkWin();
+        checkGameOver();
+        render();
+      }
+
+      function tilePosition(index) {
+        var row = Math.floor(index / SIZE);
+        var col = index % SIZE;
+        return {
+          x: 'calc(' + col + ' * (var(--cell-size) + var(--gap)) + var(--gap))',
+          y: 'calc(' + row + ' * (var(--cell-size) + var(--gap)) + var(--gap))'
+        };
+      }
+
+      function render() {
+        scoreEl.textContent = String(state.score);
+        bestEl.textContent = String(state.best);
+
+        tileLayer.innerHTML = '';
+
+        for (var i = 0; i < state.board.length; i += 1) {
+          var value = state.board[i];
+          if (!value) continue;
+
+          var pos = tilePosition(i);
+          var tile = document.createElement('div');
+          tile.className = 'tile';
+          tile.setAttribute('data-value', String(value));
+          tile.style.setProperty('--x', pos.x);
+          tile.style.setProperty('--y', pos.y);
+          tile.textContent = String(value);
+
+          if (i === state.lastSpawnIndex) tile.classList.add('tile-new');
+          if (state.mergedIndices.has(i)) tile.classList.add('tile-merged');
+
+          tileLayer.appendChild(tile);
+        }
+
+        state.lastSpawnIndex = null;
+
+        if (state.won && !state.keepPlaying) {
+          winOverlay.classList.add('show');
+        } else {
+          winOverlay.classList.remove('show');
+        }
+
+        if (state.gameOver) {
+          gameOverOverlay.classList.add('show');
+        } else {
+          gameOverOverlay.classList.remove('show');
+        }
+      }
+
+      function keyHandler(e) {
+        var map = {
+          ArrowLeft: 'left',
+          ArrowRight: 'right',
+          ArrowUp: 'up',
+          ArrowDown: 'down'
+        };
+
+        var direction = map[e.key];
+        if (!direction) return;
+        e.preventDefault();
+        move(direction);
+      }
+
+      var touchStartX = 0;
+      var touchStartY = 0;
+
+      function onTouchStart(e) {
+        if (!e.touches || !e.touches.length) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+
+      function onTouchEnd(e) {
+        if (!e.changedTouches || !e.changedTouches.length) return;
+
+        var endX = e.changedTouches[0].clientX;
+        var endY = e.changedTouches[0].clientY;
+        var dx = endX - touchStartX;
+        var dy = endY - touchStartY;
+        var absX = Math.abs(dx);
+        var absY = Math.abs(dy);
+        var threshold = 30;
+
+        if (Math.max(absX, absY) < threshold) return;
+
+        e.preventDefault();
+
+        if (absX > absY) {
+          move(dx > 0 ? 'right' : 'left');
+        } else {
+          move(dy > 0 ? 'down' : 'up');
+        }
+      }
+
+      window.addEventListener('keydown', keyHandler, { passive: false });
+      boardWrap.addEventListener('touchstart', onTouchStart, { passive: true });
+      boardWrap.addEventListener('touchend', onTouchEnd, { passive: false });
+
+      newGameBtn.addEventListener('click', resetGame);
+      retryBtn.addEventListener('click', resetGame);
+      winNewBtn.addEventListener('click', resetGame);
+      keepGoingBtn.addEventListener('click', function () {
+        state.keepPlaying = true;
+        winOverlay.classList.remove('show');
+      });
+
+      makeBackgroundCells();
+      resetGame();
+    })();
+  </script>
+</body>
+</html>
