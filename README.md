@@ -20,6 +20,7 @@ Review the project-specific setup files before installation.
 ```text
 index.html
 progress.jsonl
+README.md
 ```
 
 ## Repository
@@ -27,7 +28,10 @@ progress.jsonl
 - Task ID: 90
 
 ## Deployment
-- Deployment details will be written here after the deploy step completes.
+- Vercel URL: https://task90-azhl98011-haseebarshads-projects.vercel.app
+- Smoke test: Warning (HTTP 401 — deployment is protected/private. Disable Vercel deployment protection to make it public.)
+- Deployment mode: preview_protected_fallback
+- Visibility: Deployment exists but is access-protected/private.
 
 ## Notes
 - This README is refreshed automatically during the deploy pipeline and finalized after delivery metadata is known.

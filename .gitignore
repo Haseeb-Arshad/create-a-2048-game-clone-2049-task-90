@@ -29,3 +29,4 @@ Thumbs.db
 .dispatch_log
 .build_log
 .test_results.json
+.vercel

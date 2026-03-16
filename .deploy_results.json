@@ -1,0 +1,9 @@
+{
+  "vercel_url": "https://task90-azhl98011-haseebarshads-projects.vercel.app",
+  "smoke_test": {
+    "passed": false,
+    "details": "HTTP 401 \u2014 deployment is protected/private. Disable Vercel deployment protection to make it public."
+  },
+  "deployment_mode": "preview_protected_fallback",
+  "deployed_at": 1773678537.957189
+}
